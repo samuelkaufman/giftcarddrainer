@@ -4,10 +4,8 @@
 package main
 
 import (
-	"encoding/csv"
-	"errors"
 	"fmt"
-	"io"
+	"github.com/samuelkaufman/giftcarddrainer/pkg/giftcarddrainer"
 	"log"
 	"os"
 	"strconv"
@@ -16,161 +14,6 @@ import (
 var (
 	usage = "USAGE: gocarddrainer FILENAME BALANCE"
 )
-
-type GiftCardDrainer struct {
-	balance   int
-	fh        io.ReadSeeker
-	csvReader *csv.Reader
-	bestPair  [2]*Item
-}
-
-func New(fh io.ReadSeeker, balance int) *GiftCardDrainer {
-	return &GiftCardDrainer{
-		fh:        fh,
-		balance:   balance,
-		csvReader: csv.NewReader(fh),
-	}
-}
-
-type Item struct {
-	Price int
-	Id    string
-}
-
-var (
-	ErrNoMaxPossible    = errors.New("No max possible")
-	ErrInvalidCSV       = errors.New("Invalid CSV Format")
-	ErrNextItemNotFound = errors.New("Next item not found")
-)
-
-func (g *GiftCardDrainer) newCsvReader() (csvReader *csv.Reader) {
-	g.fh.Seek(0, 0)
-	csvReader = csv.NewReader(g.fh)
-	csvReader.TrimLeadingSpace = true
-	csvReader.FieldsPerRecord = 2
-	return
-}
-
-func recordToItem(record []string, err error) (*Item, error) {
-	if err != nil {
-		return nil, err
-	}
-	price, err := strconv.Atoi(record[1])
-	if err != nil {
-		log.Printf("Incorrectly formatted csv line %+v\n", record)
-		return nil, ErrInvalidCSV
-	}
-	return &Item{
-		Price: price,
-		Id:    record[0],
-	}, nil
-}
-
-func scanAndReturnNextItem(csvReader *csv.Reader, curItem *Item) (*Item, error) {
-
-	for item, err := recordToItem(csvReader.Read()); err == nil; item, err = recordToItem(csvReader.Read()) {
-		if item.Id == curItem.Id {
-			return recordToItem(csvReader.Read())
-		}
-	}
-	return nil, ErrNextItemNotFound
-}
-
-func (g *GiftCardDrainer) findMax(curItem *Item, csvReader *csv.Reader) (*Item, error) {
-	max := g.balance - curItem.Price
-	var maxItem *Item
-	for {
-		item, err := recordToItem(csvReader.Read())
-		if err != nil {
-			if err == io.EOF {
-				if maxItem != nil {
-					return maxItem, nil
-				} else {
-					return nil, ErrNoMaxPossible
-				}
-			}
-			log.Println(err)
-			return nil, err
-		}
-		if item.Price <= max {
-			maxItem = item
-			if item.Price == max {
-				log.Println("perfect match!", curItem.Id, maxItem.Id)
-				return maxItem, nil
-			}
-		} else if item.Price > max {
-			if maxItem == nil {
-				return nil, ErrNoMaxPossible
-			}
-			return maxItem, nil
-		}
-	}
-}
-
-func (g *GiftCardDrainer) findItems() {
-	csvReader := g.newCsvReader()
-	var err error
-	var testItem *Item
-	var curMax int
-	testItem, err = recordToItem(csvReader.Read())
-	if err != nil {
-		log.Fatal(err)
-	}
-	g.bestPair[0] = testItem
-	for {
-		maxItem, err := g.findMax(testItem, csvReader)
-		if err == ErrNoMaxPossible {
-			log.Printf("no max possible for testItem %s\n", testItem.Id)
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		} else {
-			log.Printf("max for testItem %s is %s", testItem.Id, maxItem.Id)
-			if g.bestPair[1] == nil {
-				g.bestPair[1] = maxItem
-				curMax = g.bestPair[1].Price + g.bestPair[0].Price
-			} else if maxItem.Price+testItem.Price > curMax {
-				log.Println("setting new bestPair")
-				g.bestPair[0] = testItem
-				g.bestPair[1] = maxItem
-			}
-		}
-		log.Printf("Best max pair of %s (%d) is %s (%d)\n", g.bestPair[0].Id, g.bestPair[0].Price, g.bestPair[1].Id, g.bestPair[1].Price)
-		csvReader = g.newCsvReader()
-		log.Println("finding next item for", testItem.Id)
-		testItem, err = scanAndReturnNextItem(csvReader, testItem)
-		if err == io.EOF {
-			break
-		}
-		log.Println("new testItem is", testItem.Id)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-}
-
-//func (g *GiftCardDrainer) findItems() []string {
-//	g.fh.Seek(0, 0)
-//	csvReader := csv.NewReader(g.fh)
-//	csvReader.TrimLeadingSpace = true
-//	record, err := csvReader.Read()
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	price, err := strconv.Atoi(record[1])
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	log.Println("price is", price)
-//	nextItem,err := csvReader.Read()
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//
-//	return []string{}
-//}
 
 func init() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
@@ -190,12 +33,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	drainer := New(f, balance)
-	drainer.findItems()
-	if drainer.bestPair[1] == nil {
+	drainer := giftcarddrainer.New(f, balance)
+	bestPair := drainer.Run()
+	if bestPair[1] == nil {
 		log.Println("No pair possible.")
 		return
 	}
-	log.Printf("Best max pair of %s (%d) is %s (%d)\n", drainer.bestPair[0].Id, drainer.bestPair[0].Price, drainer.bestPair[1].Id, drainer.bestPair[1].Price)
+	log.Printf("Best max pair of %s (%d) is %s (%d)\n", bestPair[0].Id, bestPair[0].Price, bestPair[1].Id, bestPair[1].Price)
 
 }
