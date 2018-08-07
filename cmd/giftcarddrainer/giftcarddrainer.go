@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -35,9 +36,9 @@ func main() {
 	drainer := giftcarddrainer.New(f, balance)
 	bestPair := drainer.Run()
 	if bestPair[1] == nil {
-		log.Println("No pair possible.")
+		fmt.Printf("Not possible")
 		return
 	}
-	log.Printf("Best max pair of %s (%d) is %s (%d)\n", bestPair[0].Id, bestPair[0].Price, bestPair[1].Id, bestPair[1].Price)
+	fmt.Printf("%s %d, %s %d\n", bestPair[0].Id, bestPair[0].Price, bestPair[1].Id, bestPair[1].Price)
 
 }
