@@ -1,5 +1,5 @@
 //You have been given a gift card that is about to expire and you want to buy gifts for 2 friends. You want to spend the whole gift card, or if that’s not an option as close to the balance as possible. You have a list of sorted prices for a popular store that you know they both like to shop at. Your challenge is to find two distinct items in the list whose sum is minimally under (or equal to) the gift card balance.
-//
+//This approach is O(n!)
 
 package giftcarddrainer
 
@@ -93,7 +93,6 @@ func (g *GiftCardDrainer) findMax(curItem *Item, csvReader *csv.Reader) (*Item, 
 		if item.Price <= max {
 			maxItem = item
 			if item.Price == max {
-				log.Println("perfect match!", curItem.Id, maxItem.Id)
 				return maxItem, nil
 			}
 		} else if item.Price > max {
@@ -118,30 +117,28 @@ func (g *GiftCardDrainer) Run() [2]*Item {
 	for {
 		maxItem, err := g.findMax(testItem, csvReader)
 		if err == ErrNoMaxPossible {
-			log.Printf("no max possible for testItem %s\n", testItem.Id)
 			break
 		}
 		if err != nil {
 			log.Fatal(err)
 		} else {
-			log.Printf("max for testItem %s is %s", testItem.Id, maxItem.Id)
+			max := maxItem.Price + testItem.Price
+			if max == g.balance {
+				return [2]*Item{testItem, maxItem}
+			}
 			if g.bestPair[1] == nil {
 				g.bestPair[1] = maxItem
-				curMax = g.bestPair[1].Price + g.bestPair[0].Price
+				curMax = max
 			} else if maxItem.Price+testItem.Price > curMax {
-				log.Println("setting new bestPair")
 				g.bestPair[0] = testItem
 				g.bestPair[1] = maxItem
 			}
 		}
-		log.Printf("Best max pair of %s (%d) is %s (%d)\n", g.bestPair[0].Id, g.bestPair[0].Price, g.bestPair[1].Id, g.bestPair[1].Price)
 		csvReader = g.newCsvReader()
-		log.Println("finding next item for", testItem.Id)
 		testItem, err = scanAndReturnNextItem(csvReader, testItem)
 		if err == io.EOF {
 			break
 		}
-		log.Println("new testItem is", testItem.Id)
 
 		if err != nil {
 			log.Fatal(err)

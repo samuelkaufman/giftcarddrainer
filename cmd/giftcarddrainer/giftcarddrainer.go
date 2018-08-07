@@ -4,11 +4,11 @@
 package main
 
 import (
-	"fmt"
-	"github.com/samuelkaufman/giftcarddrainer/pkg/giftcarddrainer"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/samuelkaufman/giftcarddrainer/pkg/giftcarddrainer"
 )
 
 var (
@@ -20,7 +20,6 @@ func init() {
 }
 
 func main() {
-	fmt.Println("vim-go")
 	if len(os.Args) != 3 {
 		log.Fatal(usage)
 	}
